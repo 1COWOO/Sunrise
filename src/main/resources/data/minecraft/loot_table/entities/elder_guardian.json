@@ -3,11 +3,16 @@
   "pools": [
     {
       "rolls": 1,
-      "bonus_rolls": 0,
       "entries": [
         {
           "type": "minecraft:item",
           "name": "minecraft:cod",
+          "conditions": [
+            {
+              "condition": "minecraft:random_chance",
+              "chance": 0.33
+            }
+          ],
           "functions": [
             {
               "function": "minecraft:set_name",
@@ -21,7 +26,6 @@
             },
             {
               "function": "minecraft:set_lore",
-              "entity": "this",
               "lore": [
                 {
                   "text": ">> 이걸 잡네 ㄹㅇㅋㅋ",
@@ -38,8 +42,7 @@
                 "type": "minecraft:uniform",
                 "min": 1,
                 "max": 2
-              },
-              "add": false
+              }
             },
             {
               "function": "minecraft:enchanted_count_increase",
@@ -57,4 +60,3 @@
   ],
   "random_sequence": "minecraft:entities/elder_guardian"
 }
-
