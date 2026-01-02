@@ -8,6 +8,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -43,7 +44,25 @@ public class SunriseMod implements ModInitializer {
         loadConfig();
         updateTimeAdapter();
 
-        // 1. 시간 동기화 로직 (Noonmaru 방식)
+        // [방법 변경] 클래스 직접 참조 에러를 피하기 위해 명령어로 규칙 설정
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            // 서버의 명령어 관리자를 사용하여 직접 명령어를 실행시킵니다 (가장 안전한 방법)
+            var commandSource = server.createCommandSourceStack().withSuppressedOutput();
+            var dispatcher = server.getCommands().getDispatcher();
+            
+            try {
+                // 1. 시간 흐름 정지
+                dispatcher.execute("gamerule advance_time false", commandSource);
+                // 2. 취침 인원 101% 설정
+                dispatcher.execute("gamerule players_sleeping_percentage 101", commandSource);
+                
+                LOGGER.info("게임룰 설정을 완료했습니다.");
+            } catch (Exception e) {
+                LOGGER.error("게임룰 설정 중 오류 발생: " + e.getMessage());
+            }
+        });
+
+        // 1. 시간 동기화 로직
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if (configFile.exists() && configFile.lastModified() != lastModified) {
                 loadConfig();
@@ -61,7 +80,6 @@ public class SunriseMod implements ModInitializer {
                 }
             }
 
-            // 1초마다 액션바 메시지 출력
             messageTickCounter++;
             if (messageTickCounter >= 20) {
                 messageTickCounter = 0;
@@ -69,41 +87,28 @@ public class SunriseMod implements ModInitializer {
             }
         });
 
-        // 2. 타임캡슐 커맨드 등록 (이 부분이 살아있어야 합니다)
+        // 2. 커맨드 등록
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             TimeCapsuleCommand.register(dispatcher);
-            LOGGER.info("TimeCapsule 커맨드 등록 완료.");
         });
     }
 
-            private void broadcastStatus(net.minecraft.server.MinecraftServer server) {
-        // 클래스명은 TimeAdapter (대문자), 변수명은 timeAdapter (소문자)
+    // broadcastStatus 등 나머지 메서드는 이전과 동일하므로 생략 (그대로 두시면 됩니다)
+    private void broadcastStatus(net.minecraft.server.MinecraftServer server) {
         if (timeAdapter == null) return;
-
         LocalTime now = LocalTime.now();
-        
-        // Noonmaru 방식: 어댑터의 '종료 시각(to)'에서 '현재 시각'을 뺍니다.
         long targetMillis = timeAdapter.getTo().getTime();
         long nowMillis = System.currentTimeMillis();
         long diffSec = (targetMillis - nowMillis) / 1000;
-        
         if (diffSec < 0) diffSec = 0;
-
-        // 남은 시간을 00:00:00 형식으로 변환
         String remain = String.format("%02d:%02d:%02d", diffSec / 3600, (diffSec % 3600) / 60, diffSec % 60);
-        
-        // 현재 상태 판별 (Noonmaru 틱 기준)
-        // 낮 시간(22835~13150틱 사이)이면 다음 목표는 '일몰'
         long currentTick = timeAdapter.getCurrentTick();
         String type = (currentTick >= 22835 || currentTick < 13150) ? "일몰" : "일출";
-
-        // 메시지 조립 (구분선만 노란색, 나머지는 회색)
         Component message = Component.literal("현재 시각: ").withStyle(ChatFormatting.GRAY)
                 .append(Component.literal(now.format(TIME_FORMATTER)).withStyle(ChatFormatting.GRAY))
                 .append(Component.literal(" | ").withStyle(ChatFormatting.YELLOW))
                 .append(Component.literal(type + "까지 남은 시간: ").withStyle(ChatFormatting.GRAY))
                 .append(Component.literal(remain).withStyle(ChatFormatting.GRAY));
-
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             player.displayClientMessage(message, true);
         }
@@ -113,20 +118,17 @@ public class SunriseMod implements ModInitializer {
         Calendar calendar = Calendar.getInstance();
         long time = calendar.getTimeInMillis();
         Date sunrise = SunSet.getSunriseTime(calendar, latitude, longitude, timezone);
-
         if (time < sunrise.getTime()) {
             calendar.add(Calendar.DAY_OF_MONTH, -1);
             Date sunset = SunSet.getSunsetTime(calendar, latitude, longitude, timezone);
             this.timeAdapter = new TimeAdapter(sunset, sunrise, TimeAdapter.Type.NIGHT);
             return;
         }
-
         Date sunset = SunSet.getSunsetTime(calendar, latitude, longitude, timezone);
         if (time < sunset.getTime()) {
             this.timeAdapter = new TimeAdapter(sunrise, sunset, TimeAdapter.Type.DAY);
             return;
         }
-
         calendar.add(Calendar.DAY_OF_MONTH, 1);
         sunrise = SunSet.getSunriseTime(calendar, latitude, longitude, timezone);
         this.timeAdapter = new TimeAdapter(sunset, sunrise, TimeAdapter.Type.NIGHT);
@@ -134,7 +136,7 @@ public class SunriseMod implements ModInitializer {
 
     private void loadConfig() {
         if (!configFile.exists()) {
-            latitude = 37.5665; longitude = -126.9780; timezone = -9;
+            latitude = 37.5665; longitude = 126.9780; timezone = 9;
             saveConfig();
         } else {
             try (Reader reader = new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)) {
