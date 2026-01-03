@@ -16,7 +16,7 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.kowoo.SunriseMod"
+			"io.github._1cowoo.sunrisemod.SunriseMod"
 		]
 	},
 	"depends": {
