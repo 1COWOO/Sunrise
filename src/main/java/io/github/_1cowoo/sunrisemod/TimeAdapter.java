@@ -1,4 +1,4 @@
-package com.kowoo;
+package io.github._1cowoo.sunrisemod;
 
 import java.util.Date;
 

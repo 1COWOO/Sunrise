@@ -1,7 +1,5 @@
-package com.kowoo;
+package io.github._1cowoo.sunrisemod;
 
-import com.kowoo.SunSet;
-import com.kowoo.TimeAdapter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
