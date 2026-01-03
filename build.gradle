@@ -76,3 +76,16 @@ publishing {
 		// retrieving dependencies.
 	}
 }
+// 1. 복사를 담당할 태스크 정의
+tasks.register('autoCopyJar', Copy) {
+    from "build/libs"
+    into "/data/data/com.termux/files/home/sunrise-1.21.11/mods" // <--- 실제 서버 mods 경로로 수정
+    include "*.jar"
+    exclude "*-sources.jar", "*-dev.jar"
+}
+
+// 2. build 태스크가 끝나면 항상 autoCopyJar가 실행되도록 설정
+tasks.named('build') {
+    finalizedBy 'autoCopyJar'
+}
+
